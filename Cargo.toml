@@ -6,3 +6,4 @@ edition = "2021"
 [dependencies]
 hecs = "0.10.5"
 macroquad = "0.4.12"
+rand = "0.8.5"

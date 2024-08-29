@@ -1,77 +1,131 @@
-use macroquad::prelude::*;
+use hecs::*;
+use macroquad::{input::KeyCode, prelude::*, rand};
+
+#[derive(Debug)]
+pub struct Body {
+    pub position: Vec2,
+    pub velocity: Vec2,
+    pub size: f32,
+    pub mass: f32,
+    pub color: Color,
+}
 
 #[macroquad::main("BasicShapes")]
 async fn main() {
-    let mut camera = Camera3D {
-        position: vec3(-20.0, 15.0, 0.0),
-        up: vec3(0.0, 1.0, 0.0),
-        target: vec3(0.0, 0.0, 0.0),
-        fovy: 45.0,
-        projection: Projection::Perspective,
+    let G: f32 = 6.67430 * f32::powf(10.0, -11.0);
+    let AU: f32 = 149598000.0;
+    let mut camera = Camera2D {
+        rotation: 0.0,
+        zoom: vec2(1.0, 1.0),
+        target: vec2(0.0, 0.0),
+        offset: vec2(0.0, 0.0),
         render_target: None,
-        aspect: None,
         viewport: None,
     };
 
-    let mut zoom = 1.0;
+    let mut bodys: Vec<Body> = Vec::new();
 
-    let camera_speed = 0.2;
-    let camera_radius = 20.0;
-    let mut camera_rotation = 0.0;
+    //for x in -20..20 {
+    //    for y in -20..20 {
+    //        bodys.push(Body {
+    //            position: vec2(x as f32, y as f32),
+    //            color: RED,
+    //            mass: 1000.0,
+    //            size: 1.0 / 10.0,
+    //            velocity: vec2(0.0, 0.0),
+    //        });
+    //    }
+    //}
+    //
+
+    bodys.push(Body {
+        position: vec2(0.0, 0.0),
+        color: YELLOW,
+        mass: 1000000.0,
+        size: 0.1,
+        velocity: vec2(0.0, 0.0),
+    });
+
+    for _ in 0..50 {
+        let p = rand::gen_range(0.1, 2.0);
+        bodys.push(Body {
+            position: vec2(rand::gen_range(-5.0, 5.0), rand::gen_range(-5.0, 5.0)),
+            color: BLUE,
+            mass: p,
+            size: p/100.0,
+            velocity: vec2(rand::gen_range(-5.0, 5.0)/1000.0, rand::gen_range(-5.0, 5.0)/1000.0),
+        });
+    }
+
+    println!("{:?}", bodys);
 
     loop {
         let delta = get_frame_time();
-        // let camera_2d_radius = (f32::powi(camera.position.x - camera.target.x, 2) + f32::powi(camera.position.z - camera.target.z, 2)).sqrt();
-
 
         if is_key_down(KeyCode::Escape) {
             break;
         }
 
+        let (mouse_wheel_x, mouse_wheel_y) = mouse_wheel();
+
+        let camera_new_zoom = camera.zoom.x + (mouse_wheel_y * camera.zoom.x * delta * 8.0);
+
+        camera.zoom = vec2(camera_new_zoom, camera_new_zoom);
+
+        //Controls
         if is_key_down(KeyCode::W) {
-            camera.target.x += camera_speed;
+            camera.target.y -= 1.0 * delta / camera_new_zoom;
         }
         if is_key_down(KeyCode::S) {
-            camera.target.x -= camera_speed;
+            camera.target.y += 1.0 * delta / camera_new_zoom;
         }
         if is_key_down(KeyCode::A) {
-            camera.target.z -= camera_speed;
+            camera.target.x -= 1.0 * delta / camera_new_zoom;
         }
         if is_key_down(KeyCode::D) {
-            camera.target.z += camera_speed;
+            camera.target.x += 1.0 * delta / camera_new_zoom;
         }
-
-        //float camX = sin(glfwGetTime()) * radius;
-        //float camZ = cos(glfwGetTime()) * radius;
-
-        if is_key_down(KeyCode::Q) {
-            camera_rotation += (camera_speed / 5.0) ;
-        }
-        if is_key_down(KeyCode::E) {
-            camera_rotation -= camera_speed / 5.0;
-        }
-
-        camera.position.x = camera.target.x + (camera_rotation.sin() * camera_radius);
-        camera.position.z = camera.target.z + (camera_rotation.cos() * camera_radius);
 
         set_camera(&camera);
-        clear_background(LIGHTGRAY);
+        clear_background(BLACK);
 
-        // 3d space rendering
-        draw_grid(1000, 1.0, BLACK, LIME);
+        for i in 1..bodys.len() {
+            let (left, right) = bodys.split_at_mut(i);
 
-        draw_line(-0.4, 0.4, -0.8, 0.9, 0.05, BLUE);
-        draw_rectangle(-0.3, 0.3, 0.2, 0.2, GREEN);
-        draw_circle(0., 0., 0.1, YELLOW);
-        draw_sphere(camera.target, 0.1, None, RED);
+            let l = left.last_mut().unwrap();
+            for r in right {
+                //skip if far away
+                //let distance = l.position.distance(vec2(0.0,0.0));
+                //if distance > 0.1 {
+                //    continue;
+                //};
+                // path from two
+                let displacment_vec = l.position - r.position;
+                // unit vec
+                let normal_vec = displacment_vec.normalize_or_zero();
+                let normal_length = displacment_vec.length_squared();
+
+                //println!("-{} * ({}*{} / {}) * {} = {}", G, l.mass, r.mass , normal_length, normal_vec, -G * (l.mass * r.mass / normal_length) * normal_vec);
+
+                let force = -G * (l.mass * r.mass / normal_length) * normal_vec;
+                //println!("{}[{}] {}[{}] = {}", l.mass, l.position, r.mass, r.position, force);
+
+                l.velocity += force / l.mass;
+                r.velocity -= force / r.mass;
+            }
+        }
+
+        for body in &mut bodys {
+            body.position += body.velocity;
+            draw_circle(body.position.x, body.position.y, body.size, body.color);
+        }
 
         // UI
         set_default_camera();
-        draw_text(&format!("FPS: {}", get_fps()), 20.0, 20.0, 18.0, DARKGRAY);
-        draw_text( &format!("FRAME TIME: {}", delta), 20.0, 40.0, 18.0, DARKGRAY,);
-        draw_text( &format!("camera rotation: {}", camera_rotation), 20.0, 60.0, 18.0, DARKGRAY,);
-        draw_text( &format!("camera pos : {}", camera.position), 20.0, 80.0, 18.0, DARKGRAY,);
-        draw_text( &format!("target pos: {}", camera.target), 20.0, 100.0, 18.0, DARKGRAY,);
+        draw_text(&format!("FPS: {}", get_fps()), 20.0, 20.0, 18.0, WHITE);
+        draw_text(&format!("FRAME TIME: {}", delta), 20.0, 40.0, 18.0, WHITE);
+        draw_text(&format!("MOUSE: X: {} Y: {}", mouse_wheel_x, mouse_wheel_y), 20.0, 60.0, 18.0, WHITE);
+        draw_text(&format!("ZOOM: {}", camera_new_zoom), 20.0, screen_height() - 20.0, 18.0, WHITE);
 
         next_frame().await
     }
