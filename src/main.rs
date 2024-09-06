@@ -38,22 +38,22 @@ async fn main() {
     //}
     //
 
-    bodys.push(Body {
-        position: vec2(0.0, 0.0),
-        color: YELLOW,
-        mass: 1000000.0,
-        size: 0.1,
-        velocity: vec2(0.0, 0.0),
-    });
+    //bodys.push(Body {
+    //    position: vec2(0.0, 0.0),
+    //    color: YELLOW,
+    //    mass: 1000000.0,
+    //    size: 0.1,
+    //    velocity: vec2(0.0, 0.0),
+    //});
 
-    for _ in 0..50 {
-        let p = rand::gen_range(0.1, 2.0);
+    for _ in 0..500 {
+        let p = rand::gen_range(0.001, 100.0);
         bodys.push(Body {
             position: vec2(rand::gen_range(-5.0, 5.0), rand::gen_range(-5.0, 5.0)),
             color: BLUE,
-            mass: p,
-            size: p/100.0,
-            velocity: vec2(rand::gen_range(-5.0, 5.0)/1000.0, rand::gen_range(-5.0, 5.0)/1000.0),
+            mass: p * 100.0,
+            size: p / 1000.0,
+            velocity: vec2(rand::gen_range(-10.0, 10.0) / 1000.0, rand::gen_range(-5.0, 15.0) / 1000.0),
         });
     }
 
